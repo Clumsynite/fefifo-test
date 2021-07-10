@@ -16,19 +16,18 @@ const destroyDB = async () => {
 
 const insert = async (doc) => {
   try {
-    // const prevDoc = await db.get(doc._id);
-    // if (prevDoc)
-    //   return await db.put({
-    //     _rev: doc._rev,
-    //     ...doc,
-    //   });
-    // return await db.put(doc);
     return await db.putIfNotExists(doc); // only inserts new document doesn't update it
   } catch (error) {
-    // console.log(error, error)
-    // if (error?.not_found) await db.put(doc);
-    // else
     console.error("Error inserting doc in database", { doc, error });
+  }
+};
+
+const upsert = async (doc) => {
+  try {
+    return await db.put(doc);
+  } catch (error) {
+    console.error("Error upserting doc in database", { doc, error });
+    return await db.put(doc);
   }
 };
 
@@ -91,6 +90,7 @@ export {
   db,
   destroyDB,
   insert,
+  upsert,
   findByID,
   deleteByID,
   softDeleteByID,

@@ -16,13 +16,17 @@ import {
   clearDB,
   deleteByID,
   findByFilter,
+  upsert,
   insert,
   softDeleteByID,
 } from "./dbService";
+import { Overlay } from "react-native-elements/dist/overlay/Overlay";
+import { Input } from "react-native-elements/dist/input/Input";
 
 const Screen = () => {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(false);
 
   useEffect(() => {
     init();
@@ -36,7 +40,7 @@ const Screen = () => {
       const created = moment().toISOString();
       const type = "DOC";
       const doc = { _id, title, type, created };
-      await insert(doc);
+      await upsert(doc);
       setLoading(false);
       await init();
     } catch (e) {
@@ -62,6 +66,7 @@ const Screen = () => {
       const docs = await findByFilter({ type: "DOC" });
       if (docs?.docs) setList(docs?.docs);
       else setList([]);
+      setSelectedItem(false);
       setLoading(false);
     } catch (e) {
       setLoading(false);
@@ -108,6 +113,62 @@ const Screen = () => {
     );
   };
 
+  const confirmAndClose = async (title) => {
+    try {
+      setLoading(true);
+      await upsert({ ...selectedItem, title });
+      setSelectedItem(false);
+      setLoading(false);
+      await init();
+    } catch (e) {
+      setLoading(false);
+      console.error("Error getting data from db", e);
+    }
+  };
+
+  const EditTitleModal = () => {
+    const [title, setTitle] = useState("");
+
+    return (
+      <Overlay
+        isVisible={!!selectedItem}
+        onBackdropPress={() => setSelectedItem(false)}
+        overlayStyle={{
+          width: "100%",
+          backgroundColor: "#fff",
+          flexDirection: "column",
+          justifyContent: "center",
+          paddingVertical: 20,
+        }}
+      >
+        <View>
+          <View>
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignSelf: "flex-end",
+              }}
+            ></TouchableOpacity>
+            <Input
+              inputStyle={{ fontSize: 20 }}
+              onChangeText={setTitle}
+              value={title}
+              placeholder="Enter new Title..."
+            />
+            <TouchableOpacity
+              onPress={() => confirmAndClose(title)}
+              style={{ ...styles.center, ...styles.button }}
+            >
+              <Text style={{ ...styles.center, color: "#fff" }}>
+                Confirm & Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Overlay>
+    );
+  };
+
   return (
     <View
       style={{
@@ -117,6 +178,7 @@ const Screen = () => {
         width: "100%",
       }}
     >
+      {selectedItem && <EditTitleModal />}
       <View
         style={{ ...styles.center, justifyContent: "space-between", flex: 15 }}
       >
@@ -141,6 +203,7 @@ const Screen = () => {
                 key={item._id}
                 softDeleteItem={softDeleteItem}
                 hardDeleteItem={hardDeleteItem}
+                setSelectedItem={setSelectedItem}
               />
             ))
           ) : (
@@ -164,9 +227,16 @@ const Loading = () => (
   </View>
 );
 
-const ListItem = ({ item, softDeleteItem, hardDeleteItem }) => (
+const ListItem = ({
+  item,
+  softDeleteItem,
+  hardDeleteItem,
+  setSelectedItem,
+}) => (
   <View style={{ ...styles.listItem }}>
-    <Text style={{ fontSize: 20 }}>{item.title}</Text>
+    <TouchableOpacity onPress={() => setSelectedItem(item)}>
+      <Text style={{ fontSize: 20 }}>{item.title}</Text>
+    </TouchableOpacity>
     <TouchableOpacity
       onPress={() => softDeleteItem(item)}
       onLongPress={() => hardDeleteItem(item)}
